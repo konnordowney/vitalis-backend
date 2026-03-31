@@ -35,7 +35,6 @@ const PRODUCTS = {
     success_path: '/thank-you-essentials-detox-kit',
   },
 };
-
 app.get('/', (req, res) => {
   res.send('Vitalis backend running');
 });
@@ -78,18 +77,32 @@ app.post('/create-checkout-session', async (req, res) => {
       quantity: item.quantity,
     }));
 
-    const highestValueItem = [...validItems].sort(
-      (a, b) => b.unit_amount - a.unit_amount
-    )[0];
+    const itemIds = validItems.map((i) => i.id).sort().join(',');
+    let successPath = '/thank-you-detox-starter-kit';
+
+    if (itemIds === 'starter-kit,supplement-tracker') {
+      successPath = '/thank-you-starter-kit-and-tracker';
+    } else if (itemIds === 'basic-detox,supplement-tracker') {
+      successPath = '/thank-you-basic-detox-and-tracker';
+    } else if (validItems.length === 1) {
+      successPath = validItems[0].success_path;
+    } else {
+      const highestValueItem = [...validItems].sort((a, b) => b.unit_amount - a.unit_amount)[0];
+      successPath = highestValueItem.success_path;
+    }
+
+    console.log('Checkout itemIds:', itemIds);
+    console.log('Checkout successPath:', successPath);
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items,
-      success_url: `${SITE_URL}${highestValueItem.success_path}?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${SITE_URL}${successPath}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${SITE_URL}/`,
       client_reference_id: `vitalis_${Date.now()}`,
       metadata: {
-        item_ids: validItems.map((i) => i.id).join(','),
+        item_ids: itemIds,
+        success_path: successPath,
       },
     });
 
